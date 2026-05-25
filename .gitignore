@@ -8,3 +8,34 @@ __pycache__/
 Thumbs.db
 .claude/settings.local.json
 .claude/*.log
+
+# 真实数据、预处理输出、训练输出与大文件：不要提交到 GitHub
+data/
+outputs/
+runs/
+checkpoints/
+models/
+figures/
+*.grb
+*.grib
+*.idx
+*.nc
+*.npy
+*.npz
+*.csv
+*.jsonl
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.hdf5
+*.zip
+*.rar
+*.7z
+
+# 本地环境
+.env
+.venv/
+venv/
+env/
+*.egg-info/
