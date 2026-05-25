@@ -1,139 +1,108 @@
 # Storm Surge CNN Reconstruction
 
-本仓库用于复现论文 **A dataset of storm surge reconstructions in the Western North Pacific using CNN** 的核心流程。当前版本先以厦门站 `Xiamen` 为例，完成：
+这个仓库用于复现论文 **A dataset of storm surge reconstructions in the Western North Pacific using CNN** 的核心流程。
+
+当前先以厦门站 `Xiamen`、1985 年为例，按照 notebook 形式完成：
 
 1. GESLA 潮位数据读取与清洗；
 2. UTide 潮汐分离，得到 storm surge；
-3. ERA20C 的 U10、V10、SLP 读取、裁剪、插值和标准化；
-4. 构建 CNN 输入 `X shape = (N, 48, 40, 40)` 与标签 `y shape = (N,)`；
-5. 按时间顺序划分训练集和验证集；
-6. 训练并验证厦门站 CNN 风暴潮重建模型。
+3. ERA20C 气象场读取、裁剪、插值和标准化；
+4. 构建 CNN 输入数据；
+5. 划分训练集和验证集；
+6. 训练 CNN 并做验证分析。
 
-本仓库只提交代码、说明和 notebook 示例。真实数据、`.npy` 输出、模型权重和训练图表都不会提交到 GitHub。
+## 推荐阅读顺序
 
-## 数据路径
-
-实验室远程电脑上的真实数据路径：
-
-```python
-ERA20C_DIR = r"F:\ERA20C"
-GESLA_DIR = r"F:\GESLA\GESLA3"
-SITE_FILE = r"F:\GESLA\GESLA3\xiamen-376a-chn-uhslc"
-SITE_NAME = "Xiamen"
-SITE_LAT = 24.45
-SITE_LON = 118.067
-```
-
-ERA20C 目录结构应为：
+主要看这两个 notebook：
 
 ```text
-F:\ERA20C\10U\*.grb
-F:\ERA20C\10V\*.grb
-F:\ERA20C\SLP\*.grb
+code_my/Data_preprocessing.ipynb
+code_my/Model_training.ipynb
 ```
 
-## 环境
+第一个 notebook 负责从原始数据生成 CNN 输入。
 
-建议在实验室远程电脑的 conda 环境 `jjq` 中运行：
+第二个 notebook 负责读取 `.npy` 数据、训练模型、验证、画图和保存结果。
 
-```bash
-pip install -r requirements.txt
-```
+## 数据预处理 notebook
 
-当前代码使用：
-
-```text
-numpy pandas matplotlib scipy scikit-learn tqdm xarray netCDF4 utide cfgrib eccodes torch
-```
-
-## 预处理
-
-如果使用 notebook：
+文件：
 
 ```text
 code_my/Data_preprocessing.ipynb
 ```
 
-该 notebook 已经补齐到数据划分阶段，会生成：
+它会完成：
+
+- 读取厦门站 GESLA 潮位文件；
+- 跳过 `#` 开头的元数据；
+- 解析 `date`、`time`、`sea_level`、`qc_flag`、`use_flag`；
+- 清理缺测值和明显异常值；
+- 使用 UTide 做潮汐分离；
+- 计算 `storm surge = observed sea level - predicted tide`；
+- 按日提取 `daily maximum storm surge` 作为标签 `y`；
+- 读取 ERA20C 的 U10、V10、SLP；
+- 裁剪厦门站周围 `10° x 10°` 区域；
+- 插值到 `40 x 40` 网格；
+- 构建 CNN 输入：
 
 ```text
-data/processed_xiamen_1985/X_train.npy
-data/processed_xiamen_1985/y_train.npy
-data/processed_xiamen_1985/X_val.npy
-data/processed_xiamen_1985/y_val.npy
-data/processed_xiamen_1985/dates_train.npy
-data/processed_xiamen_1985/dates_val.npy
-data/processed_xiamen_1985/y_original.npy
-data/processed_xiamen_1985/dates_all.npy
+单个样本 shape = (48, 40, 40)
+总体 X shape = (N, 48, 40, 40)
+y shape = (N,)
 ```
 
-如果使用模块化脚本：
+其中 `48 = 2 天 x 每天 8 个 3小时时间片 x 3 个变量`。
 
-```bash
-python src/preprocess_xiamen.py --start-year 1985 --end-year 1985
-```
-
-模块化脚本默认输出到：
+默认输出目录：
 
 ```text
-outputs/xiamen/
+data/processed_xiamen_1985/
 ```
 
-## CNN 输入说明
+生成文件：
 
-对某一天 `D` 的 daily maximum storm surge，输入使用 `D-1` 和 `D` 两天的 ERA20C 气象场。
-
-- ERA20C 为 3 小时分辨率；
-- 每天 8 个时间片；
-- 两天共 16 个时间片；
-- 变量为 U10、V10、SLP；
-- 每个变量插值到 `40 x 40`；
-- 最终单个样本 `X` 的 shape 为 `(48, 40, 40)`。
-
-训练脚本会检查 `X_train.npy` 是否满足 `(N, 48, 40, 40)`，如果预处理输出不正确会直接报错。
-
-## 模型训练
-
-先完成预处理，然后运行：
-
-```bash
-python src/train_xiamen.py --data-dir data/processed_xiamen_1985 --epochs 100
+```text
+X_train.npy
+y_train.npy
+X_val.npy
+y_val.npy
+dates_train.npy
+dates_val.npy
+y_original.npy
+dates_all.npy
+y_scaler.json
 ```
 
-如果你使用模块化预处理脚本生成了 `outputs/xiamen/`，也可以运行：
+## 模型训练 notebook
 
-```bash
-python src/train_xiamen.py --data-dir outputs/xiamen --epochs 100
+文件：
+
+```text
+code_my/Model_training.ipynb
 ```
 
-如果不传 `--data-dir`，训练脚本会按顺序自动寻找：
+它会完成：
 
-1. `data/processed_xiamen_1985`
-2. `outputs/xiamen`
+- 检查预处理输出文件是否存在；
+- 检查 `X_train` 和 `X_val` 是否为 `(N, 48, 40, 40)`；
+- 用 PyTorch `Dataset` 和 `DataLoader` 读取 `.npy`；
+- 定义适配 48 通道输入的 CNN；
+- 训练模型；
+- 使用验证集选择最佳模型；
+- 计算 RMSE、MAE、R2、相关系数；
+- 保存预测结果和图。
 
-常用参数：
-
-```bash
-python src/train_xiamen.py ^
-  --data-dir data/processed_xiamen_1985 ^
-  --run-dir runs/xiamen_1985 ^
-  --epochs 100 ^
-  --batch-size 16 ^
-  --lr 0.001 ^
-  --device auto
-```
-
-训练输出默认保存到：
+默认训练输出目录：
 
 ```text
 runs/xiamen_1985/
 ```
 
-包括：
+生成文件：
 
 ```text
 best_model.pth
-last_loaded_best_model.pth
 training_history.csv
 metrics.json
 val_predictions.csv
@@ -142,23 +111,53 @@ val_timeseries.png
 val_scatter.png
 ```
 
-这些文件都在 `.gitignore` 中，不会上传到 GitHub。
+这些文件都不会上传到 GitHub。
 
-## 验证指标
+## 依赖环境
 
-训练完成后会在验证集上输出：
+建议在实验室远程电脑的 conda 环境 `jjq` 中运行。
 
-- MSE
-- RMSE
-- MAE
-- R2
-- 相关系数 corr
+如果缺包，可以执行：
 
-其中 `metrics.json` 同时保存标准化单位和原始 storm surge 单位下的指标。
+```bash
+pip install -r requirements.txt
+```
 
-## 注意事项
+需要的主要库：
 
-- 1985 单年样本很少，训练结果只能用于流程验证，不能代表论文最终重建效果。
-- 论文级复现应使用更长时间范围，例如厦门站完整可用期，再重新划分训练/验证。
-- `code_my/Data_preprocessing.ipynb` 中的标签标准化是对全部 `y` 拟合；训练脚本会通过 `y_original.npy` 自动反推出反标准化参数。
-- 不要提交 `.grb`、`.npy`、`.csv`、`.pth`、训练图或模型权重。
+```text
+numpy
+pandas
+matplotlib
+scikit-learn
+xarray
+utide
+cfgrib
+eccodes
+torch
+jupyter
+```
+
+## 数据路径
+
+当前 notebook 示例中，本地测试路径是：
+
+```text
+E:\AAAqian\code\storm_surge\data
+```
+
+实验室电脑上的真实路径是：
+
+```text
+ERA20C_DIR = F:\ERA20C
+GESLA_DIR = F:\GESLA\GESLA3
+SITE_FILE = F:\GESLA\GESLA3\xiamen-376a-chn-uhslc
+```
+
+如果在实验室电脑运行，需要在 `Data_preprocessing.ipynb` 的路径设置 Cell 中改成实验室路径。
+
+## 注意
+
+- 1985 单年样本较少，模型结果主要用于跑通流程，不代表论文最终效果。
+- 要更接近论文结果，需要使用多年 ERA20C 和 GESLA 数据重新预处理和训练。
+- 不要提交 `.grb`、`.npy`、`.csv`、`.pth`、训练图片或任何大数据文件。
