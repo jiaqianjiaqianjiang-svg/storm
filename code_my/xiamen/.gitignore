@@ -1,4 +1,4 @@
-﻿.idea/
+.idea/
 __pycache__/
 .ipynb_checkpoints/
 *.pyc
@@ -9,15 +9,12 @@ Thumbs.db
 .claude/settings.local.json
 .claude/*.log
 
-# 真实数据、预处理输出、训练输出与大文件：不要提交到 GitHub
+# 真实数据与大文件：不要提交到 GitHub
 data/
 outputs/
-runs/
-checkpoints/
 models/
 figures/
-short_term_forecast/results/
-short_term_forecast/figures_for_report/
+cache/
 *.grb
 *.grib
 *.idx
@@ -25,9 +22,9 @@ short_term_forecast/figures_for_report/
 *.npy
 *.npz
 *.csv
-*.jsonl
 *.pth
 *.pt
+*.png
 *.ckpt
 *.h5
 *.hdf5
